@@ -20,23 +20,20 @@ void setup(){
 }
 
 void loop(){
-  digitalWrite(9,LOW); /* Por cuestión de estabilización del sensor*/
+  digitalWrite(9,LOW); /* Stabilize sensor*/
   delayMicroseconds(5);
-  digitalWrite(9, HIGH); /* envío del pulso ultrasónico*/
+  digitalWrite(9, HIGH); /* Ultrasonic pulse sent*/
   delayMicroseconds(10);
-  timeLight=pulseIn(8, HIGH); /* Función para medir la longitud del pulso entrante. Mide el tiempo que transcurrido entre el envío
-  del pulso ultrasónico y cuando el sensor recibe el rebote, es decir: desde que el pin 12 empieza a recibir el rebote, HIGH, hasta que
-  deja de hacerlo, LOW, la longitud del pulso entrante*/
+  timeLight=pulseIn(8, HIGH); 
 
-
-  digitalWrite(7,LOW); /* Por cuestión de estabilización del sensor*/
+  digitalWrite(7,LOW); /* Stabilize sensor*/
   delayMicroseconds(5);
-  digitalWrite(7, HIGH); /* envío del pulso ultrasónico*/
+  digitalWrite(7, HIGH); /* Ultrasonic pulse sent*/
   delayMicroseconds(10);
   timeDoor=pulseIn(6, HIGH);
   
-  distanceDoor= int(0.017*timeDoor); 
-  distanceSensor= int(0.017*timeLight); /*fórmula para calcular la distancia obteniendo un valor entero*/
+  distanceDoor= int(0.017*timeDoor); /*formula to calculate the distance*/
+  distanceSensor= int(0.017*timeLight); /*formula to calculate the distance*/
 
   if (distanceDoor<=10){
     digitalWrite(2,HIGH);
@@ -56,10 +53,10 @@ void loop(){
   sensorAnswer = digitalRead(13);
 
   if (doorAnswer == 1){
-    digitalWrite(10,HIGH);
+    digitalWrite(10,LOW);
   }
   else{
-    digitalWrite(10,LOW);
+    digitalWrite(10,HIGH);
   }
   
   if (sensorAnswer == 1){
@@ -70,11 +67,11 @@ void loop(){
   }
   
   
-  /*Monitorización en centímetros por el monitor serial*/
-  Serial.println("Distancia Luz");
+  /*Terminal*/
+  Serial.println("Light Distance");
   Serial.println(distanceSensor);
   Serial.println(" cm");
-  Serial.println("Distancia Puerta");
+  Serial.println("Door Distance");
   Serial.println(distanceDoor);
   Serial.println(" cm");
   delay(1000);
