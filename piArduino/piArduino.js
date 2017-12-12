@@ -47,11 +47,11 @@ door.watch(function (err, value) { //function to set/unset led
   }
 
   if(value === 1){
-     doorLed.writeSync(1);
-     console.log("Turned on the led");
-  }else{
      doorLed.writeSync(0);
      console.log("Turned off the led");
+  }else{
+     doorLed.writeSync(1);
+     console.log("Turned on the led");
   }
 
 });
@@ -66,10 +66,10 @@ sensor.watch(function (err, value) { //function to set/unset led
 
   if(value === 1){
      sensorLed.writeSync(1);
-     console.log("Turned off the led");
+     console.log("Turned on the led");
   }else{
      sensorLed.writeSync(0);
-     console.log("Turned on the led");
+     console.log("Turned off the led");
   }
 
 });
