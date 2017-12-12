@@ -57,7 +57,7 @@ door.watch(function (err, value) { //function to set/unset led
 });
 
 sensor.watch(function (err, value) { //function to set/unset led
-  console.log("The sensor was activated");
+  console.log("The light's sensor was activated");
   
   if (err){//if error
      console.error('There was an error', err);
@@ -66,10 +66,10 @@ sensor.watch(function (err, value) { //function to set/unset led
 
   if(value === 1){
      sensorLed.writeSync(1);
-     console.log("Turned on the led");
+     console.log("Turned off the led");
   }else{
      sensorLed.writeSync(0);
-     console.log("Turned off the led");
+     console.log("Turned on the led");
   }
 
 });
