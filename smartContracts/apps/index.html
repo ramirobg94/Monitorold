@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" type="text/css" href="./style.css">
+  <style>
+    .boxAlertItem{
+         width: 80vw;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    height: 50px;
+    background: #bdbdbd;
+    border-radius: 5px;
+    margin: 5px;
+    }
+
+    .dotGreen{
+      background: #009688;
+    border-radius: 50%;
+    height: 30px;
+    width: 30px;
+    }
+
+    .dotRed{
+      background: #F44336;
+    border-radius: 50%;
+    height: 30px;
+    width: 30px;
+    }
+ 
+   
+
+  </style>
+  <script type="text/javascript" src="./node_modules/web3/dist/web3.min.js"></script>
+
+  <script type="text/javascript" src="./node_modules/truffle-contract/dist/truffle-contract.js"></script>
+
+  <script
+  src="https://code.jquery.com/jquery-3.2.1.min.js"
+  integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+  crossorigin="anonymous"></script>
+
+  <script type="text/javascript" src="./app.js"></script>
+
+  <script>
+
+    var MyContractJSON;
+
+    function loadJSON(path){
+      var json = null;
+      $.ajax({
+        'async': false,
+        'global': false,
+        'url': path,
+        'dataType': "json",
+        'success': function (data) {
+          json = data;
+        }
+      });
+      return json;
+    }
+    
+    var account_one = "0x627306090abaB3A6e1400e9345bC60c78a8BEf57"; // an address
+    var account_two = "0xf17f52151EbEF6C7334FAD080c5704D77216b732";
+
+    var meta;
+    var provider;
+    var GrandHouse;
+    function init(){
+      // Setup RPC connection   
+      provider  = new Web3.providers.HttpProvider("http://localhost:7545");
+
+      // Read JSON and attach RPC connection (Provider)
+
+
+      MyContractJSON = loadJSON('./contracts/GrandHouse.json');
+      GrandHouse = TruffleContract(MyContractJSON);
+      GrandHouse.setProvider(provider);
+      drawHomeScreen();
+    }
+
+    window.onload = function() {
+      init();
+
+      GrandHouse.deployed().then(function(instance) {
+       meta = instance;
+     })
+      .catch(function(e) {
+        console.log("error", e)
+      });
+
+    };
+
+    function newHome() {
+
+      var hubAddress = $( "input[name='hubAddress']" ).val();
+      var hubName = $( "input[name='hubName']" ).val();
+
+      $( "#container" ).html(
+        '<div id="NewHomeScreenContainer">'+
+        '<div >Loading...</div>'+
+        "</div>"
+        );
+
+      GrandHouse.deployed()
+      .then(function(instance) {
+        return instance.createHome(account_two, stringToHex(hubName), {from: account_one, gas: 200000});
+      })
+      .then(function(result) {
+        setTimeout( drawMainScreen(hubAddress) , 30000);
+      })
+      .catch(function(e) {
+        console.log("error", e)
+      });
+    }
+
+    function stringToHex(str) {
+      var arr = str.split('');
+      var hex = "0x";
+      for (var i = 0; i < 32; i++){
+        if(arr.length > i){
+          hex += str.charCodeAt(i).toString(16);
+        }else{
+          hex += "00";
+        }
+      }
+      return hex;
+    }
+
+    function hexToString (hex) {
+      var string = '';
+      for (var i = 0; i < hex.length; i += 2) {
+        string += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+      }
+      return string;
+    }
+
+    function drawMainScreen(hubAddress){
+
+      var hubAddress = hubAddress || $( "input[name='hubAddress']" ).val();
+
+      $( "#container" ).html(
+        '<div id="NewHomeScreenContainer">'+
+        '<div >Loading...</div>'+
+        "</div>"
+        );
+
+      GrandHouse.deployed()
+      .then(function(instance) {
+        meta = instance;
+        return meta.getMyHome(account_two, {from: account_one});
+      })
+      .then(function(result) {
+          //console.log(hexToString(result[0][0]))
+          $( "#container" ).html(
+            "<div>"+
+            '<div class="flex-1 darkBlue " onClick="drawHomeScreen()">New Home</div>'+
+            '<input type="hidden" name="hubAddress" value="'+result[1]+'">'+
+            '<div class="flex-3-text" >'+
+            '<p>Hello '+result[0]+'\nI am the hub: '+result[1]+'\nAka <strong>'+hexToString(result[2])+'</strong></p>'+
+            '<div id="devicesBox"></div>'+ '<div id="alertsBox"></div>'+
+            '</div>'+
+            "</div>"
+            );
+
+          printDevices(result[3]);
+          printAlerts(result[4])
+        })
+      .catch(function(e) {
+        console.log("error get my home", e)
+      });
+
+    }
+
+    function printDevices(devices){
+
+      const getDevices = devices.map(function(device){return meta.getDeviceById(device, {from: account_one})});
+      Promise.all(getDevices).then(function(values){
+        $( "#devicesBox" ).html(
+          printItemsBox(values, 'devices')
+          )
+      });
+
+    }
+
+    function printAlerts(alerts){
+      const getAlerts = alerts.map(function(alert){return meta.getAlertById(alert, {from: account_one})});
+      
+      Promise.all(getAlerts)
+      .then(
+        function(values){
+          $( "#alertsBox" ).html( printItemsBox(values, 'alerts') )
+        }
+        );
+
+    }
+
+    function printItemsBox(items, name){
+
+      if(items.length <= 0){
+       return '<h1>there are no '+name+'</h1><div onClick="printAddItem('+"'"+name+"'"+')">Add new '+name+'</div><div id="'+name+'-container"></div>';
+     }
+     var text;
+     text += '<h1>'+name+'</h1>'
+     text += '<div onClick="printAddItem('+"'"+name+"'"+')">Add new '+name+'</div>'
+     text += '<div id="'+name+'-container">'
+     text += printItems(items, name)
+     text += '</div>'
+     return text;
+    }
+
+    //Take the correct fields
+    function printAddItem(name){
+        //TODO
+        var label = '#'+name+'-container';
+
+        $(".inputAdd").html('')
+
+        if(name === 'devices'){
+          $(label).html(
+            '<div id="inputAdd" class="inputAdd">'+
+            '<input class="inputBig" type="text" name="deviceName" placeHolder="device name">'+
+            '<input class="inputBig" type="text" name="port" placeHolder="port">'+
+            '<div class="flex-2" ><div id="circleBtn" onClick="addDevice()">Send</div></div>'+
+            '</div>'
+            )
+        }
+
+        if(name === 'alerts'){
+         $(label).html(
+          '<div id="inputAdd" class="inputAdd">'+
+          '<input class="inputBig" type="text" name="range" placeHolder=" range HH:MM,HH:MM">'+
+          '<input class="inputBig" type="text" name="alertName" placeHolder="alert name">'+
+          '<input class="inputBig" type="text" name="port" placeHolder="port">'+
+          '<div class="flex-2" ><div id="circleBtn" onClick="addAlert()">Send</div></div>'+
+          '</div>'
+          )
+       }
+    }
+
+    function addDevice(){
+
+      //gidden hubAddress
+      var hubAddress = $( "input[name='hubAddress']" ).val();
+      var deviceName = $( "input[name='deviceName']" ).val();
+      var port = $( "input[name='port']" ).val();
+
+      $(".inputAdd").html('<div>sending..</div>')
+
+      if(hubAddress === '' || deviceName === '' || port === '') drawMainScreen(hubAddress);
+
+      GrandHouse.deployed()
+      .then(function(instance) {
+        meta = instance;
+        return meta.addDevice(account_two, deviceName, port*1, {from: account_one, gas: 200000});
+      })
+      .then(function(result) {
+
+        drawMainScreen(hubAddress)
+              //console.log(hexToString(result[0][0]))
+
+            })
+      .catch(function(e) {
+        console.log("error", e)
+      });
+
+      $(".inputAdd").html('');
+    }
+
+    function switchAlert(idAlert) {
+
+      var hubAddress = $( "input[name='hubAddress']" ).val();
+
+      GrandHouse.deployed()
+      .then(function(instance) {
+        meta = instance;
+        return meta.switchAlert(idAlert, {from: account_one, gas: 200000});
+      })
+      .then(function(result) {
+
+          console.log(result);
+        drawMainScreen(hubAddress)
+              //console.log(hexToString(result[0][0]))
+
+      })
+      .catch(function(e) {
+        console.log("error", e)
+      });
+      
+    }
+
+    function removeDevice(idDevice) {
+
+      var hubAddress = $( "input[name='hubAddress']" ).val();
+
+      GrandHouse.deployed()
+      .then(function(instance) {
+        meta = instance;
+        return meta.removeDevice(idDevice, hubAddress, {from: account_one, gas: 200000});
+      })
+      .then(function(result) {
+
+          console.log(result);
+        drawMainScreen(hubAddress)
+              //console.log(hexToString(result[0][0]))
+
+      })
+      .catch(function(e) {
+        console.log("error", e)
+      });
+      
+    }
+
+    function removeAlert(idAlert) {
+
+      var hubAddress = $( "input[name='hubAddress']" ).val();
+
+      GrandHouse.deployed()
+      .then(function(instance) {
+        meta = instance;
+        return meta.removeAlert(idAlert, hubAddress, {from: account_one, gas: 200000});
+      })
+      .then(function(result) {
+
+          console.log(result);
+        drawMainScreen(hubAddress)
+              //console.log(hexToString(result[0][0]))
+
+      })
+      .catch(function(e) {
+        console.log("error", e)
+      });
+      
+    }
+    //Take the correct fields
+    function addAlert(){
+
+      var hubAddress = $( "input[name='hubAddress']" ).val();
+      //var deviceName = $( "input[name='deviceName']" ).val();
+      var alertName = $( "input[name='alertName']" ).val();
+       var range = $( "input[name='range']" ).val();
+       var port = $( "input[name='port']" ).val();
+
+      $(".inputAdd").html('<div>sending..</div>')
+
+      GrandHouse.deployed()
+      .then(function(instance) {
+        meta = instance;
+        return meta.addAlert(hubAddress, alertName, range, port, {from: account_one, gas: 2000000});
+      })
+      .then(function(result) {
+
+        drawMainScreen(hubAddress)
+              //console.log(hexToString(result[0][0]))
+
+            })
+      .catch(function(e) {
+        console.log("error", e)
+      });
+
+      $(".inputAdd").html('');
+    }
+
+    function getDot(bol) {
+      if(bol) return 'dotGreen';
+      return 'dotRed';
+    }
+
+    function printItems(items, name){
+      console.log(items);
+      if(items.length <= 0) return '';
+      var text;
+      if(name === 'devices'){
+        text += '<div class="boxAlertItem" style="height: auto; background: #fff"><div>id</div><div>name</div><div>port</div></div>'
+        for(var i = 0; i < items.length; i++){
+          text += '<div class="boxAlertItem"><div>'+items[i][0]+'</div><div>'+ hexToString(items[i][3])+'</div><div>'+items[i][4]+'</div></div>';
+        }
+      }
+
+      if(name === 'alerts'){
+        text += '<div class="boxAlertItem" style="height: auto; background: #fff"><div>id</div><div>name</div><div>range</div><div>status</div><div>port</div></div>'
+        for(var i = 0; i < items.length; i++){
+          text += '<div class="boxAlertItem"><div>'+items[i][0]+'</div><div>'+hexToString(items[i][3])+'</div><div>'+hexToString(items[i][4])+'</div><div class="'+getDot(items[i][5])+'" onClick="switchAlert('+"'"+items[i][0]+"'"+')"></div><div>'+items[i][6]+'</div></div>';
+        } 
+      }        
+      return text;
+    }
+
+    function drawHomeScreen(){
+      $( "#container" ).html(
+        "<div>"+
+        '<div id="btnScreenHomeA" onClick="drawNewHomeScreen()" >New Home</div>'+
+        '<div id="btnScreenHomeB" onClick="drawMyHomeScreen()">Log into my Home</div>'+
+        "</div>"
+        );
+    }
+
+    function drawNewHomeScreen(){
+      $( "#container" ).html(
+        '<div id="NewHomeScreenContainer">'+
+        '<div class="flex-1 darkBlue " onClick="drawHomeScreen()">New Home</div>'+
+        '<div class="flex-3" >'+
+        '<h2>Hub Address</h2>'+
+        '<input class="inputBig" type="text" name="hubAddress">'+
+        '</div>'+
+        '<div class="flex-3" >'+
+        '<h2>Hub name</h2>'+
+        '<input class="inputBig" type="text" name="hubName">'+
+        '</div>'+
+        '<div class="flex-2" ><div id="circleBtn" onClick="newHome()">Send</div></div>'+
+        '</div>'
+        );
+    }
+
+    function drawMyHomeScreen(){
+      $( "#container" ).html(
+        '<div id="NewHomeScreenContainer">'+
+        '<div class="flex-1 darkBlue " onClick="drawHomeScreen()">Log into Home</div>'+
+        '<div class="flex-6" >'+
+        '<h2>Hub Address</h2>'+
+        '<input class="inputBig" type="text" name="hubAddress">'+
+        '</div>'+
+        '<div class="flex-2" ><div id="circleBtn" onClick="drawMainScreen()">Send</div></div>'+
+
+        "</div>"
+        );
+    }
+
+  </script>
+</head>
+<body>
+
+
+  <div id="container">
+    <div>
+
+
+    </body>
+    </html>

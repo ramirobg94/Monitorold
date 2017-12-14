@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" type="text/css" href="./style.css">
+  <style>
+    #raspberry{
+      background: #009688;
+      width: 400px;
+      height: 300px;
+      margin: 5px;
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+    }
+
+ .dotGreen{
+      background: #009688;
+    border-radius: 50%;
+    height: 30px;
+    width: 30px;
+    }
+
+    .dotRed{
+      background: #F44336;
+    border-radius: 50%;
+    height: 30px;
+    width: 30px;
+    }
+
+    .pin{
+      background: #fff;
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    display: flex;
+    align-items: center;
+    border-radius: 10px;
+    margin: 3px;
+    }
+    #led{
+      height: 100px;
+    width: 100px;
+    border-radius: 50% 50% 0 0;
+    box-shadow: 0px 0px 10px;
+    margin: 5px;
+    border-bottom: solid 10px;
+    }
+ 
+   
+    .boxAlertItem{
+         width: 80vw;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    height: 50px;
+    background: #bdbdbd;
+    border-radius: 5px;
+    margin: 5px;
+    }
+
+    .alertsBox{
+      height: 200px;
+      overflow: auto;
+      width: 100vw;
+    }
+
+    .dark{
+      background: #3d3d3d;
+    }
+    .light{
+      background: #F00;
+    }
+
+
+  </style>
+  <script type="text/javascript" src="./node_modules/web3/dist/web3.min.js"></script>
+
+  <script type="text/javascript" src="./node_modules/truffle-contract/dist/truffle-contract.js"></script>
+
+  <script
+  src="https://code.jquery.com/jquery-3.2.1.min.js"
+  integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+  crossorigin="anonymous"></script>
+
+  <script type="text/javascript" src="./app.js"></script>
+
+  <script>
+
+    var MyContractJSON;
+
+    function loadJSON(path){
+      var json = null;
+      $.ajax({
+        'async': false,
+        'global': false,
+        'url': path,
+        'dataType': "json",
+        'success': function (data) {
+          json = data;
+        }
+      });
+      return json;
+    }
+    
+    var account_one = "0x627306090abaB3A6e1400e9345bC60c78a8BEf57"; // an address
+    var account_two = "0xf17f52151EbEF6C7334FAD080c5704D77216b732";
+
+    var meta;
+    var provider;
+    var GrandHouse;
+
+    var myAlerts;
+    const numOfPins = 10;
+    function init(){
+      // Setup RPC connection   
+      provider  = new Web3.providers.HttpProvider("http://localhost:7545");
+
+      // Read JSON and attach RPC connection (Provider)
+
+
+      MyContractJSON = loadJSON('./contracts/GrandHouse.json');
+      GrandHouse = TruffleContract(MyContractJSON);
+      GrandHouse.setProvider(provider);
+      drawHomeScreen();
+      getMyHome();
+    }
+
+    window.onload = function() {
+      init();
+      startTime()
+      GrandHouse.deployed().then(function(instance) {
+       meta = instance;
+     })
+      .catch(function(e) {
+        console.log("error", e)
+      });
+
+    };
+
+    function stringToHex(str) {
+      var arr = str.split('');
+      var hex = "0x";
+      for (var i = 0; i < 32; i++){
+        if(arr.length > i){
+          hex += str.charCodeAt(i).toString(16);
+        }else{
+          hex += "00";
+        }
+      }
+      return hex;
+    }
+
+    function hexToString (hex) {
+      var string = '';
+      for (var i = 0; i < hex.length; i += 2) {
+        string += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+      }
+      return string;
+    }
+
+    function getMyHome(hubAddress){
+      console.log(account_two)
+      GrandHouse.deployed()
+      .then(function(instance) {
+        meta = instance;
+        return meta.getMyHome(account_two, {from: account_two});
+      })
+      .then(function(result) {
+        console.log(result)
+         printAlerts(result[4])
+        })
+      .catch(function(e) {
+        console.log("error get my home", e)
+      });
+
+    }
+
+    function printAlerts(alerts){
+      const getAlerts = alerts.map(function(alert){return meta.getAlertById(alert, {from: account_one})});
+      
+      Promise.all(getAlerts)
+      .then(
+        function(values){
+          $( "#alertsBox" ).html( printItemsBox(values, 'alerts') )
+          setAlerts(values);
+        }
+        );
+
+    }
+
+    function startTime() {
+    var today = new Date();
+    var h = today.getHours();
+    var m = today.getMinutes();
+    var s = today.getSeconds();
+    m = checkTime(m);
+    s = checkTime(s);
+    document.getElementById('txt').innerHTML =
+    h + ":" + m + ":" + s;
+    var t = setTimeout(startTime, 500);
+}
+function checkTime(i) {
+    if (i < 10) {i = "0" + i};  // add zero in front of numbers < 10
+    return i;
+}
+
+    function printItemsBox(items, name){
+
+      if(items.length <= 0){
+       return '<h1>there are no '+name+'</h1><div id="'+name+'-container"></div>';
+     }
+     var text;
+     text += ''
+     text += '<div id="'+name+'-container">'
+     text += printItems(items, name)
+     text += '</div>'
+     return text;
+    }
+
+    function getDot(bol) {
+      if(bol) return 'dotGreen';
+      return 'dotRed';
+    }
+
+    function printItems(items, name){
+      console.log(items);
+      if(items.length <= 0) return '';
+      var text;
+
+     if(name === 'alerts'){
+        text += '<div class="boxAlertItem" style="height: auto; background: #fff"><div>id</div><div>name</div><div>range</div><div>status</div><div>port</div></div>'
+        for(var i = 0; i < items.length; i++){
+          text += '<div class="boxAlertItem"><div>'+items[i][0]+'</div><div>'+hexToString(items[i][3])+'</div><div>'+hexToString(items[i][4])+'</div><div class="'+getDot(items[i][5])+'" onClick="switchAlert('+"'"+items[i][0]+"'"+')"></div><div>'+items[i][6]+'</div></div>';
+        } 
+      }    
+      return text;
+    }
+
+    function drawHomeScreen(){
+      $( "#container" ).html(
+        '<div id="NewHomeScreenContainer">'+
+        '<div id="raspberry"></div>'+
+        '<div id="led" class="dark"></div>'+
+        '<div onClick="init()"><h1>Alerts</h1></div>'+
+        '<div id="alertsBox"></div>'+
+
+        "</div>"
+        );
+
+      printPorts();
+    }
+
+    function printPorts(){
+        for(var i = 0; i < numOfPins; i++){
+          $('#raspberry').append('<div id="pin'+i+'" class="pin" onClick="someEvent('+"'"+i+"'"+')">'+i+'</div>')
+        }
+      }
+
+      function setAlerts(alertsToSet) {
+        myAlerts = new Array(numOfPins);
+
+        for(var i= 0; i < myAlerts.length; i++){
+          myAlerts[i] = new Array();
+        }
+
+        for(var j = 0; j < alertsToSet.length; j++){
+          console.log((alertsToSet[j][6]+'')*1)
+          myAlerts[(alertsToSet[j][6]+'')*1].push(alertsToSet[j]);
+        }
+
+      }
+
+      function someEvent(port) {
+        console.log(port)
+        let alertsInThisPort = myAlerts[port];
+        if(alertsInThisPort.length <= 0)return;
+        for(var n = 0; n < alertsInThisPort.length; n++){
+
+          console.log(alertsInThisPort[n]);
+          var alertId = alertsInThisPort[n][0];
+          var alertName = hexToString(alertsInThisPort[n][3]);
+          var alertRange = hexToString(alertsInThisPort[n][4]);
+          var alertStatus = alertsInThisPort[n][5];
+          var alertPort = alertsInThisPort[n][6];
+
+          if(alertPort == port && alertStatus == true){
+            doIHaveToFire(alertRange)
+          }
+
+        }
+      }
+
+      function HMToTimeStamp(hour){
+        var d = new Date();
+
+        var h = hour.split(':')[0];
+        var m = hour.split(':')[1];
+
+        var dt = d.getMonth()+1 +'/'+d.getDate()+'/'+d.getFullYear()+' '+h+':'+m;
+      
+        var f =  new Date(dt);
+        return f;
+      }
+
+      function doIHaveToFire(range){
+
+        console.log(range.split(''));
+        var rangeSplited = range.split('').filter(function(entry) { 
+            return entry == ':' || 
+              entry == ',' || 
+              entry == '0' ||
+              entry == '1' ||
+              entry == '2' ||
+              entry == '3' ||
+              entry == '4' ||
+              entry == '5' ||
+              entry == '6' ||
+              entry == '7' ||
+              entry == '8' ||
+              entry == '9'; 
+            });
+
+        var nowTimeStamp = Date.now();
+        var newRange = rangeSplited.join('').split(',');
+
+        if( nowTimeStamp >= HMToTimeStamp(newRange[0]) && nowTimeStamp <= HMToTimeStamp(newRange[1])){
+          console.log("*************************ALARM**************")
+          fireAlert();
+        }
+      }
+
+      function fireAlert(){
+
+        console.log("alert")
+        $('#led').addClass("dark");
+        $('#led').addClass("light");
+        setTimeout(function(){ $('#led').removeClass("light");$('#led').addClass("dark"); }, 3000);
+      }
+
+  </script>
+</head>
+<body>
+
+<div id="txt"></div>
+  <div id="container">
+    <div>
+
+
+    </body>
+    </html>
