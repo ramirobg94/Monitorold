@@ -23,7 +23,7 @@ MetaCoin.new().then(function(instance) {
 }).catch(function(err) {
   // There was an error! Handle it.
 });*/
-
+const numOfPins = 40;
 var myAlerts;
 var LED = new Gpio(4, 'out'); //use GPIO pin 4, and specify that it is output
 var button = new Gpio(17, 'in', 'both'); // use GPIO pin 17, and specify that it is input
@@ -64,7 +64,7 @@ function someEvent(port) {
         let alertsInThisPort = myAlerts[port];
         if(alertsInThisPort.length <= 0)return;
         for(var n = 0; n < alertsInThisPort.length; n++){
-          console.log(alertsInThisPort[n]);
+         //console.log(alertsInThisPort[n]);
           var alertId = alertsInThisPort[n][0];
           var alertName = hexToString(alertsInThisPort[n][3]);
           var alertRange = hexToString(alertsInThisPort[n][4]);
@@ -86,7 +86,7 @@ function someEvent(port) {
         return f;
       }
       function doIHaveToFire(range){
-        console.log(range.split(''));
+        //console.log(range.split(''));
         var rangeSplited = range.split('').filter(function(entry) { 
             return entry == ':' || 
               entry == ',' || 
@@ -124,7 +124,7 @@ function setupAlerts(alerts){
       Promise.all(getAlerts)
       .then(
         function(values){
-          $( "#alertsBox" ).html( printItemsBox(values, 'alerts') )
+          console.log("setUpAlerts",values);
           setAlerts(values);
         }
         );
@@ -139,14 +139,14 @@ function setAlerts(alertsToSet) {
           console.log((alertsToSet[j][6]+'')*1)
           myAlerts[(alertsToSet[j][6]+'')*1].push(alertsToSet[j]);
         }
+console.log("setAlerts",myAlerts)
       }
 
 function getMyHome(hubAddress){
-      console.log(account_two)
+      console.log(account_one)
       GrandHouse.deployed()
-      .then(function(instance) {
-        meta = instance;
-        return meta.getMyHome(account_two, {from: account_two});
+      .then(function(instance) {        meta = instance;
+        return meta.getMyHome(account_one, {from: account_one});
       })
       .then(function(result) {
         console.log(result)
@@ -165,7 +165,10 @@ buttonRefresh.watch(function(err,value){
 	if(value === 1){
 		init();
 	}
-}
+   }
+);
+
+
 
 button.watch(function (err, value) { //function to set/unset led
   console.log("The button was pressed");
@@ -220,7 +223,9 @@ function unexportOnClose() { //function to run when exiting program
   button.unexport(); // Unexport Button GPIO to free resources
   door.unexport();
   sensor.unexport();
+  buttonRefresh.unexport();
 };
 
 process.on('SIGINT', unexportOnClose); //function to run when user closes using ctrl+c
 
+init();
