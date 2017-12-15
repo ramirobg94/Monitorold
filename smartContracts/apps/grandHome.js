@@ -5,16 +5,16 @@ var Web3            = require('web3'),
     contract        = require("truffle-contract"),
     path            = require('path')
     MyContractJSON  = require(path.join(__dirname, './contracts/GrandHouse.json'));
-
+var Gpio = require('onoff').Gpio; //include onoff to interact with the GPIO
 // Setup RPC connection   
-var provider    = new Web3.providers.HttpProvider("http://localhost:7545");
+var provider    = new Web3.providers.HttpProvider("http://130.240.5.78:7545");
 
 // Read JSON and attach RPC connection (Provider)
 var GrandHouse = contract(MyContractJSON);
 GrandHouse.setProvider(provider);
 
-var account_one = "0x627306090abaB3A6e1400e9345bC60c78a8BEf57"; // an address
-var account_two = "0xf17f52151EbEF6C7334FAD080c5704D77216b732";
+var account_one = "0x93ed0241a4c5bc06cc5f78f2bbb1bde512a14f78"; // an address
+//var account_two = "0xf17f52151EbEF6C7334FAD080c5704D77216b732";
 var meta;
 /*
 MetaCoin.new().then(function(instance) {
@@ -24,6 +24,15 @@ MetaCoin.new().then(function(instance) {
   // There was an error! Handle it.
 });*/
 
+var myAlerts;
+var LED = new Gpio(4, 'out'); //use GPIO pin 4, and specify that it is output
+var button = new Gpio(17, 'in', 'both'); // use GPIO pin 17, and specify that it is input
+var door = new Gpio(27, 'in', 'both'); // use GPIO pin 27 to get door's sensor
+var sensor = new Gpio(22, 'in', 'both'); // use GPIO pin 22 to get sensor's data
+var doorLed = new Gpio(23, 'out'); // use GPIO pin 23 to send Door's answer
+var sensorLed = new Gpio(24, 'out'); // use GPIO pin 24 to send Sensor's answer
+var buttonState = 0;
+var buttonRefresh = new Gpio(18,'in','both');
 
 function hexToString (hex) {
     var string = '';
@@ -46,47 +55,172 @@ function stringToHex(str) {
   return hex;
 }
 
+function init(){
+  getMyHome();
+}
 
-GrandHouse.deployed().then(function(instance) {
-  //console.log(instance);
-  meta = instance;
-  //return meta.createHome(account_two, 'yaya', {from: account_one, gas: 200000});
-  return meta.getMyHome(account_two, {from: account_one});
-  //return meta.addDevice(account_two, stringToHex('puerta'), {from: account_one});
-  //return meta.getMyHome(account_two, {from: account_one});
+function someEvent(port) {
+        console.log(port)
+        let alertsInThisPort = myAlerts[port];
+        if(alertsInThisPort.length <= 0)return;
+        for(var n = 0; n < alertsInThisPort.length; n++){
+          console.log(alertsInThisPort[n]);
+          var alertId = alertsInThisPort[n][0];
+          var alertName = hexToString(alertsInThisPort[n][3]);
+          var alertRange = hexToString(alertsInThisPort[n][4]);
+          var alertStatus = alertsInThisPort[n][5];
+          var alertPort = alertsInThisPort[n][6];
+          if(alertPort == port && alertStatus == true){
+            doIHaveToFire(alertRange)
+          }
+        }
+      }
+
+      function HMToTimeStamp(hour){
+        var d = new Date();
+        var h = hour.split(':')[0];
+        var m = hour.split(':')[1];
+        var dt = d.getMonth()+1 +'/'+d.getDate()+'/'+d.getFullYear()+' '+h+':'+m;
+      
+        var f =  new Date(dt);
+        return f;
+      }
+      function doIHaveToFire(range){
+        console.log(range.split(''));
+        var rangeSplited = range.split('').filter(function(entry) { 
+            return entry == ':' || 
+              entry == ',' || 
+              entry == '0' ||
+              entry == '1' ||
+              entry == '2' ||
+              entry == '3' ||
+              entry == '4' ||
+              entry == '5' ||
+              entry == '6' ||
+              entry == '7' ||
+              entry == '8' ||
+              entry == '9'; 
+            });
+        var nowTimeStamp = Date.now();
+        var newRange = rangeSplited.join('').split(',');
+        if( nowTimeStamp >= HMToTimeStamp(newRange[0]) && nowTimeStamp <= HMToTimeStamp(newRange[1])){
+          console.log("*************************ALARM**************")
+          fireAlert();
+        }
+      }
+      function fireAlert(){
+        console.log("alert")
+        
+	//$('#led').addClass("dark");
+        //$('#led').addClass("light");
+	LED.writeSync(0);
+	LED.writeSync(1);
+        setTimeout(function(){LED.writeSync(0);}, 3000);
+      }
+
+function setupAlerts(alerts){
+      const getAlerts = alerts.map(function(alert){return meta.getAlertById(alert, {from: account_one})});
+      
+      Promise.all(getAlerts)
+      .then(
+        function(values){
+          $( "#alertsBox" ).html( printItemsBox(values, 'alerts') )
+          setAlerts(values);
+        }
+        );
+    }
+
+function setAlerts(alertsToSet) {
+        myAlerts = new Array(numOfPins);
+        for(var i= 0; i < myAlerts.length; i++){
+          myAlerts[i] = new Array();
+        }
+        for(var j = 0; j < alertsToSet.length; j++){
+          console.log((alertsToSet[j][6]+'')*1)
+          myAlerts[(alertsToSet[j][6]+'')*1].push(alertsToSet[j]);
+        }
+      }
+
+function getMyHome(hubAddress){
+      console.log(account_two)
+      GrandHouse.deployed()
+      .then(function(instance) {
+        meta = instance;
+        return meta.getMyHome(account_two, {from: account_two});
+      })
+      .then(function(result) {
+        console.log(result)
+         setupAlerts(result[4])
+        })
+      .catch(function(e) {
+        console.log("error get my home", e)
+      });
+    }
+
+buttonRefresh.watch(function(err,value){
+	if(err){
+		return;
+	}
+
+	if(value === 1){
+		init();
+	}
+}
+
+button.watch(function (err, value) { //function to set/unset led
+  console.log("The button was pressed");
   
-  //return meta.getMyHome(account_two, {from: account_two});
-})
-.then(function(result) {
-    console.log(result);
-    console.log(hexToString(result[0][0]))
+  if (err){//if error
+     console.error('There was an error', err);
+     return;
+  }
 
-})
-.catch(function(e) {
-  console.log("error", e)
+  if(value === 1){
+	someEvent(17);
+  }
+
 });
 
-/*
-// Use Truffle as usual
-MyContract.deployed().then(function(instance) {
-    return instance.myFunction.call(arg1, arg2, {from: '0x************************'})
+door.watch(function (err, value) { //function to set/unset led
+  console.log("The door's sensor was activated");
+  
+  if (err){//if error
+     console.error('There was an error', err);
+     return;
+  }
 
-}).then(function(result) {
-    console.log(result);
+  if(value === 0){
+     someEvent(27);
+  }
 
-}, function(error) {
-    console.log(error);
-}); 
-*/
-/*
-var meta;
-MetaCoin.deployed().then(function(instance) {
-  meta = instance;
-  return meta.sendCoin(account_two, 10, {from: account_one});
-}).then(function(result) {
-  // If this callback is called, the transaction was successfully processed.
-  alert("Transaction successful!")
-}).catch(function(e) {
-  // There was an error! Handle it.
-})
-*/
+});
+
+sensor.watch(function (err, value) { //function to set/unset led
+  console.log("The light's sensor was activated");
+  
+  if (err){//if error
+     console.error('There was an error', err);
+     return;
+  }
+
+  if(value === 1){
+	someEvent(22);
+  }
+
+});
+
+//setTimeout(endBlink, 5000); //stop blinking after 5 seconds
+function unexportOnClose() { //function to run when exiting program
+  LED.writeSync(0); // Turn LED off
+  LED.unexport(); // Unexport LED GPIO to free resources
+  doorLed.writeSync(0);
+  doorLed.unexport();
+  sensorLed.writeSync(0);
+  sensorLed.unexport();
+  button.unexport(); // Unexport Button GPIO to free resources
+  door.unexport();
+  sensor.unexport();
+};
+
+process.on('SIGINT', unexportOnClose); //function to run when user closes using ctrl+c
+
